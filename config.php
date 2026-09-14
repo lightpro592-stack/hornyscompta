@@ -327,6 +327,7 @@ function ensure_schema_pgsql(PDO $pdo): void
 
     ensure_user_permission_columns($pdo);
     ensure_grade_permission_columns($pdo);
+    fix_pgsql_sequences($pdo);
 
     $stmt = $pdo->prepare('SELECT id FROM users WHERE username = ? LIMIT 1');
     $stmt->execute(['admin']);
@@ -479,6 +480,25 @@ function get_table_columns(PDO $pdo, string $tableName): array
         $stmt->execute([DB_NAME, $tableName]);
     }
     return $stmt->fetchAll(PDO::FETCH_COLUMN);
+}
+
+function fix_pgsql_sequences(PDO $pdo): void
+{
+    if (DB_DRIVER !== 'pgsql') return;
+
+    $tables = [
+        'accounting_entries', 'discord_webhooks', 'grades', 'ingredients', 
+        'invoices', 'invoice_items', 'products', 'product_ingredients', 'users'
+    ];
+
+    foreach ($tables as $table) {
+        try {
+            $pdo->exec("SELECT setval(pg_get_serial_sequence('$table', 'id'), coalesce(max(id), 0) + 1, false) FROM $table");
+        } catch (Throwable $e) {
+            // Ignorer si l'utilisateur n'est pas propriétaire, mais logguer l'erreur
+            error_log("Failed to reset sequence for $table: " . $e->getMessage());
+        }
+    }
 }
 
 function current_user(): ?array

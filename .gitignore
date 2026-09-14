@@ -3,3 +3,6 @@
 *.log
 Thumbs.db
 desktop.ini
+
+.vercel
+.env*

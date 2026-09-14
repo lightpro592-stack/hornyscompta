@@ -10,7 +10,7 @@ define('DB_USER', getenv('DB_USER') ?: 'root');
 define('DB_PASS', getenv('DB_PASS') ?: '');
 define('DB_DRIVER', getenv('DB_DRIVER') ?: 'mysql');
 define('DB_SSLMODE', getenv('DB_SSLMODE') ?: 'require');
-define('APP_SECRET', getenv('APP_SECRET') ?: hash('sha256', (DB_PASS ?: '') . (DB_NAME ?: '') . 'hornys-default-secret-v1'));
+define('APP_SECRET', getenv('APP_SECRET') ?: 'hornys-stable-secret-prod-v1');
 
 function db(): PDO
 {
@@ -374,25 +374,36 @@ function ensure_user_permission_columns(PDO $pdo): void
 
 function current_user(): ?array
 {
-    $userId = $_SESSION['user_id'] ?? auth_cookie_user_id();
+    $userId = auth_cookie_user_id() ?: ($_SESSION['user_id'] ?? null);
 
     if (empty($userId)) {
         return null;
     }
 
-    $stmt = db()->prepare('SELECT * FROM users WHERE id = ? AND active = 1 LIMIT 1');
-    $stmt->execute([$userId]);
+    try {
+        $stmt = db()->prepare('SELECT * FROM users WHERE id = ? AND active = 1 LIMIT 1');
+        $stmt->execute([$userId]);
+        $user = $stmt->fetch();
+        
+        if ($user) {
+            $_SESSION['user_id'] = (int) $user['id'];
+            return $user;
+        }
+    } catch (Throwable $e) {
+        error_log('Error in current_user: ' . $e->getMessage());
+    }
 
-    return $stmt->fetch() ?: null;
+    return null;
 }
 
 function auth_cookie_user_id(): ?int
 {
-    if (empty($_COOKIE['hornys_auth'])) {
+    $cookieValue = $_COOKIE['hornys_auth'] ?? null;
+    if (empty($cookieValue)) {
         return null;
     }
 
-    $parts = explode(':', $_COOKIE['hornys_auth'], 2);
+    $parts = explode(':', $cookieValue, 2);
     if (count($parts) !== 2 || !ctype_digit($parts[0])) {
         return null;
     }
@@ -404,7 +415,6 @@ function auth_cookie_user_id(): ?int
         return null;
     }
 
-    $_SESSION['user_id'] = (int) $userId;
     return (int) $userId;
 }
 

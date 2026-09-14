@@ -26,6 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $error = 'Identifiant ou mot de passe incorrect.';
     } catch (PDOException $exception) {
+        error_log('Database connection failed: ' . $exception->getMessage());
         $error = "Impossible de joindre la base de donnees. Verifie que MySQL est lance et que la base hornys_compta existe.";
     }
 }

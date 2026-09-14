@@ -32,11 +32,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 INSERT INTO users (
                     username, password_hash, role, display_name, active,
                     grade_id
-                ) VALUES (?, ?, "employee", ?, 1, ?)
+                ) VALUES (?, ?, ?, ?, 1, ?)
             ');
             $stmt->execute([
                 $username,
                 password_hash($password, PASSWORD_DEFAULT),
+                'employee',
                 $displayName,
                 $gradeId > 0 ? $gradeId : null,
             ]);

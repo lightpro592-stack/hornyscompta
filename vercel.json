@@ -10,7 +10,7 @@
       "dest": "/assets/$1"
     },
     {
-      "src": "/(.*\\.php)",
+      "src": "/((?!api/).*\\.php)",
       "dest": "/api/$1"
     },
     {

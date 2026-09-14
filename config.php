@@ -388,7 +388,7 @@ function require_login(): array
     $user = current_user();
 
     if (!$user) {
-        header('Location: index.php');
+        header('Location: /index.php');
         exit;
     }
 
@@ -419,30 +419,30 @@ function require_permission(array $user, string $permission): void
 function default_page_for(array $user): string
 {
     if (can($user, 'can_view_accounting')) {
-        return 'dashboard.php';
+        return '/dashboard.php';
     }
 
     if (can($user, 'can_view_referentiel')) {
-        return 'referentiel.php';
+        return '/referentiel.php';
     }
 
     if (can($user, 'can_view_employees')) {
-        return 'liste-employes.php';
+        return '/liste-employes.php';
     }
 
     if (can($user, 'can_manage_employees')) {
-        return 'gestion-employes.php';
+        return '/gestion-employes.php';
     }
 
     if (can($user, 'can_manage_grades')) {
-        return 'gestion-grades.php';
+        return '/gestion-grades.php';
     }
 
     if (can($user, 'can_manage_logs')) {
-        return 'logs.php';
+        return '/logs.php';
     }
 
-    return 'logout.php';
+    return '/logout.php';
 }
 
 function send_discord_log(string $eventType, string $title, string $description, array $fields = []): void

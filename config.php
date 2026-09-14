@@ -11,6 +11,9 @@ define('DB_PASS', getenv('DB_PASS') ?: '');
 define('DB_DRIVER', getenv('DB_DRIVER') ?: 'mysql');
 define('DB_SSLMODE', getenv('DB_SSLMODE') ?: 'require');
 define('APP_SECRET', getenv('APP_SECRET') ?: 'hornys-stable-secret-prod-v1');
+define('AUTO_MIGRATE', (getenv('AUTO_MIGRATE') !== false)
+    ? getenv('AUTO_MIGRATE') === '1'
+    : getenv('VERCEL') === false);
 
 function db(): PDO
 {
@@ -30,7 +33,9 @@ function db(): PDO
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
     ]);
 
-    ensure_schema($pdo);
+    if (AUTO_MIGRATE) {
+        ensure_schema($pdo);
+    }
 
     return $pdo;
 }

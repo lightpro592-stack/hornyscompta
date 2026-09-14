@@ -325,6 +325,9 @@ function ensure_schema_pgsql(PDO $pdo): void
         )
     ");
 
+    ensure_user_permission_columns($pdo);
+    ensure_grade_permission_columns($pdo);
+
     $stmt = $pdo->prepare('SELECT id FROM users WHERE username = ? LIMIT 1');
     $stmt->execute(['admin']);
 
@@ -350,28 +353,50 @@ function ensure_schema_pgsql(PDO $pdo): void
 function ensure_user_permission_columns(PDO $pdo): void
 {
     $columns = [
-        'can_view_accounting' => 'TINYINT(1) NOT NULL DEFAULT 1',
-        'can_edit_accounting' => 'TINYINT(1) NOT NULL DEFAULT 1',
-        'can_view_referentiel' => 'TINYINT(1) NOT NULL DEFAULT 0',
-        'can_edit_referentiel' => 'TINYINT(1) NOT NULL DEFAULT 0',
-        'can_view_employees' => 'TINYINT(1) NOT NULL DEFAULT 0',
-        'can_manage_employees' => 'TINYINT(1) NOT NULL DEFAULT 0',
-        'can_manage_grades' => 'TINYINT(1) NOT NULL DEFAULT 0',
-        'can_manage_logs' => 'TINYINT(1) NOT NULL DEFAULT 0',
-        'grade_id' => 'INT UNSIGNED NULL',
+        'can_view_accounting' => [
+            'mysql' => 'TINYINT(1) NOT NULL DEFAULT 1',
+            'pgsql' => 'SMALLINT NOT NULL DEFAULT 1'
+        ],
+        'can_edit_accounting' => [
+            'mysql' => 'TINYINT(1) NOT NULL DEFAULT 1',
+            'pgsql' => 'SMALLINT NOT NULL DEFAULT 1'
+        ],
+        'can_view_referentiel' => [
+            'mysql' => 'TINYINT(1) NOT NULL DEFAULT 0',
+            'pgsql' => 'SMALLINT NOT NULL DEFAULT 0'
+        ],
+        'can_edit_referentiel' => [
+            'mysql' => 'TINYINT(1) NOT NULL DEFAULT 0',
+            'pgsql' => 'SMALLINT NOT NULL DEFAULT 0'
+        ],
+        'can_view_employees' => [
+            'mysql' => 'TINYINT(1) NOT NULL DEFAULT 0',
+            'pgsql' => 'SMALLINT NOT NULL DEFAULT 0'
+        ],
+        'can_manage_employees' => [
+            'mysql' => 'TINYINT(1) NOT NULL DEFAULT 0',
+            'pgsql' => 'SMALLINT NOT NULL DEFAULT 0'
+        ],
+        'can_manage_grades' => [
+            'mysql' => 'TINYINT(1) NOT NULL DEFAULT 0',
+            'pgsql' => 'SMALLINT NOT NULL DEFAULT 0'
+        ],
+        'can_manage_logs' => [
+            'mysql' => 'TINYINT(1) NOT NULL DEFAULT 0',
+            'pgsql' => 'SMALLINT NOT NULL DEFAULT 0'
+        ],
+        'grade_id' => [
+            'mysql' => 'INT UNSIGNED NULL',
+            'pgsql' => 'INTEGER NULL'
+        ],
     ];
 
-    $stmt = $pdo->prepare('
-        SELECT COLUMN_NAME
-        FROM INFORMATION_SCHEMA.COLUMNS
-        WHERE TABLE_SCHEMA = ? AND TABLE_NAME = "users"
-    ');
-    $stmt->execute([DB_NAME]);
-    $existing = array_flip($stmt->fetchAll(PDO::FETCH_COLUMN));
+    $existing = get_table_columns($pdo, 'users');
 
-    foreach ($columns as $column => $definition) {
-        if (!isset($existing[$column])) {
-            $pdo->exec("ALTER TABLE users ADD COLUMN $column $definition");
+    foreach ($columns as $column => $defs) {
+        if (!in_array($column, $existing)) {
+            $def = $defs[DB_DRIVER] ?? $defs['mysql'];
+            $pdo->exec("ALTER TABLE users ADD COLUMN $column $def");
         }
     }
 
@@ -391,32 +416,69 @@ function ensure_user_permission_columns(PDO $pdo): void
 
 function ensure_grade_permission_columns(PDO $pdo): void
 {
-    if (DB_DRIVER === 'pgsql') return;
-
     $columns = [
-        'can_view_accounting' => 'TINYINT(1) NOT NULL DEFAULT 1',
-        'can_edit_accounting' => 'TINYINT(1) NOT NULL DEFAULT 1',
-        'can_view_referentiel' => 'TINYINT(1) NOT NULL DEFAULT 0',
-        'can_edit_referentiel' => 'TINYINT(1) NOT NULL DEFAULT 0',
-        'can_view_employees' => 'TINYINT(1) NOT NULL DEFAULT 0',
-        'can_manage_employees' => 'TINYINT(1) NOT NULL DEFAULT 0',
-        'can_manage_grades' => 'TINYINT(1) NOT NULL DEFAULT 0',
-        'can_manage_logs' => 'TINYINT(1) NOT NULL DEFAULT 0',
+        'can_view_accounting' => [
+            'mysql' => 'TINYINT(1) NOT NULL DEFAULT 1',
+            'pgsql' => 'SMALLINT NOT NULL DEFAULT 1'
+        ],
+        'can_edit_accounting' => [
+            'mysql' => 'TINYINT(1) NOT NULL DEFAULT 1',
+            'pgsql' => 'SMALLINT NOT NULL DEFAULT 1'
+        ],
+        'can_view_referentiel' => [
+            'mysql' => 'TINYINT(1) NOT NULL DEFAULT 0',
+            'pgsql' => 'SMALLINT NOT NULL DEFAULT 0'
+        ],
+        'can_edit_referentiel' => [
+            'mysql' => 'TINYINT(1) NOT NULL DEFAULT 0',
+            'pgsql' => 'SMALLINT NOT NULL DEFAULT 0'
+        ],
+        'can_view_employees' => [
+            'mysql' => 'TINYINT(1) NOT NULL DEFAULT 0',
+            'pgsql' => 'SMALLINT NOT NULL DEFAULT 0'
+        ],
+        'can_manage_employees' => [
+            'mysql' => 'TINYINT(1) NOT NULL DEFAULT 0',
+            'pgsql' => 'SMALLINT NOT NULL DEFAULT 0'
+        ],
+        'can_manage_grades' => [
+            'mysql' => 'TINYINT(1) NOT NULL DEFAULT 0',
+            'pgsql' => 'SMALLINT NOT NULL DEFAULT 0'
+        ],
+        'can_manage_logs' => [
+            'mysql' => 'TINYINT(1) NOT NULL DEFAULT 0',
+            'pgsql' => 'SMALLINT NOT NULL DEFAULT 0'
+        ],
     ];
 
-    $stmt = $pdo->prepare('
-        SELECT COLUMN_NAME
-        FROM INFORMATION_SCHEMA.COLUMNS
-        WHERE TABLE_SCHEMA = ? AND TABLE_NAME = "grades"
-    ');
-    $stmt->execute([DB_NAME]);
-    $existing = array_flip($stmt->fetchAll(PDO::FETCH_COLUMN));
+    $existing = get_table_columns($pdo, 'grades');
 
-    foreach ($columns as $column => $definition) {
-        if (!isset($existing[$column])) {
-            $pdo->exec("ALTER TABLE grades ADD COLUMN $column $definition");
+    foreach ($columns as $column => $defs) {
+        if (!in_array($column, $existing)) {
+            $def = $defs[DB_DRIVER] ?? $defs['mysql'];
+            $pdo->exec("ALTER TABLE grades ADD COLUMN $column $def");
         }
     }
+}
+
+function get_table_columns(PDO $pdo, string $tableName): array
+{
+    if (DB_DRIVER === 'pgsql') {
+        $stmt = $pdo->prepare("
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name = ? AND table_schema = 'public'
+        ");
+        $stmt->execute([$tableName]);
+    } else {
+        $stmt = $pdo->prepare("
+            SELECT COLUMN_NAME 
+            FROM INFORMATION_SCHEMA.COLUMNS 
+            WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?
+        ");
+        $stmt->execute([DB_NAME, $tableName]);
+    }
+    return $stmt->fetchAll(PDO::FETCH_COLUMN);
 }
 
 function current_user(): ?array

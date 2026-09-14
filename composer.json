@@ -1,0 +1,6 @@
+{
+  "name": "hornys/facturation",
+  "description": "Systeme de facturation et gestion employes Horny's.",
+  "type": "project",
+  "require": {}
+}

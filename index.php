@@ -2,7 +2,8 @@
 require_once __DIR__ . '/config.php';
 
 if (current_user()) {
-    header('Location: ' . default_page_for(current_user()));
+    $redirectUrl = default_page_for(current_user());
+    header('Location: ' . $redirectUrl);
     exit;
 }
 

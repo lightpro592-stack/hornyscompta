@@ -534,6 +534,8 @@ function auth_cookie_user_id(): ?int
 
     $parts = explode(':', $cookieValue, 2);
     if (count($parts) !== 2 || !ctype_digit($parts[0])) {
+        // Cookie invalide ou mal formé, on le supprime pour éviter les boucles
+        clear_auth_user();
         return null;
     }
 
@@ -541,6 +543,7 @@ function auth_cookie_user_id(): ?int
     $expected = hash_hmac('sha256', $userId, APP_SECRET);
 
     if (!hash_equals($expected, $signature)) {
+        clear_auth_user();
         return null;
     }
 

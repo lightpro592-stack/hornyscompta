@@ -396,23 +396,31 @@ function ensure_user_permission_columns(PDO $pdo): void
 
     foreach ($columns as $column => $defs) {
         if (!in_array($column, $existing)) {
-            $def = $defs[DB_DRIVER] ?? $defs['mysql'];
-            $pdo->exec("ALTER TABLE users ADD COLUMN $column $def");
+            try {
+                $def = $defs[DB_DRIVER] ?? $defs['mysql'];
+                $pdo->exec("ALTER TABLE users ADD COLUMN $column $def");
+            } catch (Throwable $e) {
+                error_log("Failed to add column $column to users: " . $e->getMessage());
+            }
         }
     }
 
-    $pdo->exec("
-        UPDATE users
-        SET can_view_accounting = 1,
-            can_edit_accounting = 1,
-            can_view_referentiel = 1,
-            can_edit_referentiel = 1,
-            can_view_employees = 1,
-            can_manage_employees = 1,
-            can_manage_grades = 1,
-            can_manage_logs = 1
-        WHERE role = 'admin'
-    ");
+    try {
+        $pdo->exec("
+            UPDATE users
+            SET can_view_accounting = 1,
+                can_edit_accounting = 1,
+                can_view_referentiel = 1,
+                can_edit_referentiel = 1,
+                can_view_employees = 1,
+                can_manage_employees = 1,
+                can_manage_grades = 1,
+                can_manage_logs = 1
+            WHERE role = 'admin'
+        ");
+    } catch (Throwable $e) {
+        error_log("Failed to update admin permissions: " . $e->getMessage());
+    }
 }
 
 function ensure_grade_permission_columns(PDO $pdo): void
@@ -456,8 +464,12 @@ function ensure_grade_permission_columns(PDO $pdo): void
 
     foreach ($columns as $column => $defs) {
         if (!in_array($column, $existing)) {
-            $def = $defs[DB_DRIVER] ?? $defs['mysql'];
-            $pdo->exec("ALTER TABLE grades ADD COLUMN $column $def");
+            try {
+                $def = $defs[DB_DRIVER] ?? $defs['mysql'];
+                $pdo->exec("ALTER TABLE grades ADD COLUMN $column $def");
+            } catch (Throwable $e) {
+                error_log("Failed to add column $column to grades: " . $e->getMessage());
+            }
         }
     }
 }

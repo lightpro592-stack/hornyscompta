@@ -180,7 +180,7 @@ foreach ($recipes as $recipe) {
             <h1>Referentiel</h1>
         </div>
         <nav>
-            <span><?= e($user['display_name']) ?> - admin</span>
+            <span><?= e($user['display_name']) ?> - <?= e($user['role']) ?></span>
             <?php if (can($user, 'can_view_accounting')): ?>
                 <a href="dashboard.php">Facturation</a>
             <?php endif; ?>

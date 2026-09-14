@@ -123,6 +123,7 @@ $webhooks = $pdo->query('SELECT * FROM discord_webhooks ORDER BY active DESC, na
             <?php if (can($user, 'can_view_employees')): ?><a href="liste-employes.php">Liste des employes</a><?php endif; ?>
             <?php if (can($user, 'can_manage_employees')): ?><a href="gestion-employes.php">Gestion employes</a><?php endif; ?>
             <?php if (can($user, 'can_manage_grades')): ?><a href="gestion-grades.php">Gestion grade</a><?php endif; ?>
+            <?php if (can($user, 'can_view_accounting')): ?><a href="statistique.php">Statistique</a><?php endif; ?>
             <a href="logout.php">Deconnexion</a>
         </nav>
     </header>

@@ -137,6 +137,7 @@ $employees = $pdo->query("
             <?php if (can($user, 'can_view_referentiel')): ?><a href="referentiel.php">Referentiel</a><?php endif; ?>
             <?php if (can($user, 'can_view_employees')): ?><a href="liste-employes.php">Liste des employes</a><?php endif; ?>
             <?php if (can($user, 'can_manage_employees')): ?><a href="gestion-employes.php">Gestion employes</a><?php endif; ?>
+            <?php if (can($user, 'can_view_accounting')): ?><a href="statistique.php">Statistique</a><?php endif; ?>
             <?php if (can($user, 'can_manage_logs')): ?><a href="logs.php">Logs</a><?php endif; ?>
             <a href="logout.php">Deconnexion</a>
         </nav>

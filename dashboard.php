@@ -215,6 +215,7 @@ if ($invoices) {
             <?php if (can($user, 'can_manage_grades')): ?>
                 <a href="gestion-grades.php">Gestion grade</a>
             <?php endif; ?>
+            <a href="statistique.php">Statistique</a>
             <?php if (can($user, 'can_manage_logs')): ?>
                 <a href="logs.php">Logs</a>
             <?php endif; ?>

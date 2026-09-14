@@ -16,6 +16,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $gradeId = (int) ($_POST['grade_id'] ?? 0);
             $name = trim($_POST['name'] ?? '');
             $payPercent = (float) str_replace(',', '.', $_POST['pay_percent'] ?? '100');
+            
+            $perms = [
+                'can_view_accounting' => isset($_POST['can_view_accounting']) ? 1 : 0,
+                'can_edit_accounting' => isset($_POST['can_edit_accounting']) ? 1 : 0,
+                'can_view_referentiel' => isset($_POST['can_view_referentiel']) ? 1 : 0,
+                'can_edit_referentiel' => isset($_POST['can_edit_referentiel']) ? 1 : 0,
+                'can_view_employees' => isset($_POST['can_view_employees']) ? 1 : 0,
+                'can_manage_employees' => isset($_POST['can_manage_employees']) ? 1 : 0,
+                'can_manage_grades' => isset($_POST['can_manage_grades']) ? 1 : 0,
+                'can_manage_logs' => isset($_POST['can_manage_logs']) ? 1 : 0,
+            ];
 
             if ($name === '') {
                 throw new RuntimeException('Le nom du grade est obligatoire.');
@@ -26,12 +37,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             if ($gradeId > 0) {
-                $stmt = $pdo->prepare('UPDATE grades SET name = ?, pay_percent = ? WHERE id = ?');
-                $stmt->execute([$name, $payPercent, $gradeId]);
+                $stmt = $pdo->prepare('
+                    UPDATE grades 
+                    SET name = ?, pay_percent = ?, 
+                        can_view_accounting = ?, can_edit_accounting = ?, 
+                        can_view_referentiel = ?, can_edit_referentiel = ?, 
+                        can_view_employees = ?, can_manage_employees = ?, 
+                        can_manage_grades = ?, can_manage_logs = ?
+                    WHERE id = ?
+                ');
+                $stmt->execute([
+                    $name, $payPercent, 
+                    $perms['can_view_accounting'], $perms['can_edit_accounting'],
+                    $perms['can_view_referentiel'], $perms['can_edit_referentiel'],
+                    $perms['can_view_employees'], $perms['can_manage_employees'],
+                    $perms['can_manage_grades'], $perms['can_manage_logs'],
+                    $gradeId
+                ]);
                 $message = 'Grade modifie.';
             } else {
-                $stmt = $pdo->prepare('INSERT INTO grades (name, pay_percent) VALUES (?, ?)');
-                $stmt->execute([$name, $payPercent]);
+                $stmt = $pdo->prepare('
+                    INSERT INTO grades (
+                        name, pay_percent, 
+                        can_view_accounting, can_edit_accounting, 
+                        can_view_referentiel, can_edit_referentiel, 
+                        can_view_employees, can_manage_employees, 
+                        can_manage_grades, can_manage_logs
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ');
+                $stmt->execute([
+                    $name, $payPercent,
+                    $perms['can_view_accounting'], $perms['can_edit_accounting'],
+                    $perms['can_view_referentiel'], $perms['can_edit_referentiel'],
+                    $perms['can_view_employees'], $perms['can_manage_employees'],
+                    $perms['can_manage_grades'], $perms['can_manage_logs']
+                ]);
                 $message = 'Grade cree.';
             }
         }
@@ -68,7 +108,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$grades = $pdo->query('SELECT id, name, pay_percent, created_at FROM grades ORDER BY pay_percent DESC, name')->fetchAll();
+$grades = $pdo->query('SELECT * FROM grades ORDER BY pay_percent DESC, name')->fetchAll();
 $employees = $pdo->query("
     SELECT users.id, users.display_name, users.username, users.role, users.grade_id,
            grades.name AS grade_name, grades.pay_percent
@@ -117,6 +157,18 @@ $employees = $pdo->query("
                     <input name="pay_percent" type="number" min="0" step="0.01" value="100" required>
                 </label>
             </div>
+
+            <h3>Permissions du grade</h3>
+            <div class="permissions-grid">
+                <label class="checkbox-row"><input type="checkbox" name="can_view_accounting" checked> Voir la comptabilité</label>
+                <label class="checkbox-row"><input type="checkbox" name="can_edit_accounting" checked> Modifier la comptabilité</label>
+                <label class="checkbox-row"><input type="checkbox" name="can_view_referentiel"> Voir le référentiel</label>
+                <label class="checkbox-row"><input type="checkbox" name="can_edit_referentiel"> Modifier le référentiel</label>
+                <label class="checkbox-row"><input type="checkbox" name="can_view_employees"> Voir les employés</label>
+                <label class="checkbox-row"><input type="checkbox" name="can_manage_employees"> Gérer les employés</label>
+                <label class="checkbox-row"><input type="checkbox" name="can_manage_grades"> Gérer les grades</label>
+                <label class="checkbox-row"><input type="checkbox" name="can_manage_logs"> Voir les logs</label>
+            </div>
             <button type="submit">Creer le grade</button>
         </form>
 
@@ -128,8 +180,21 @@ $employees = $pdo->query("
                         <form method="post" class="grade-edit">
                             <input type="hidden" name="action" value="save_grade">
                             <input type="hidden" name="grade_id" value="<?= (int) $grade['id'] ?>">
-                            <input name="name" value="<?= e($grade['name']) ?>" required>
-                            <input name="pay_percent" type="number" min="0" step="0.01" value="<?= e($grade['pay_percent']) ?>" required>
+                            <div class="employee-form-grid">
+                                <label>Nom <input name="name" value="<?= e($grade['name']) ?>" required></label>
+                                <label>% Paye <input name="pay_percent" type="number" min="0" step="0.01" value="<?= e($grade['pay_percent']) ?>" required></label>
+                            </div>
+                            
+                            <div class="permissions-grid mini">
+                                <label class="checkbox-row"><input type="checkbox" name="can_view_accounting" <?= $grade['can_view_accounting'] ? 'checked' : '' ?>> Compta (V)</label>
+                                <label class="checkbox-row"><input type="checkbox" name="can_edit_accounting" <?= $grade['can_edit_accounting'] ? 'checked' : '' ?>> Compta (E)</label>
+                                <label class="checkbox-row"><input type="checkbox" name="can_view_referentiel" <?= $grade['can_view_referentiel'] ? 'checked' : '' ?>> Ref (V)</label>
+                                <label class="checkbox-row"><input type="checkbox" name="can_edit_referentiel" <?= $grade['can_edit_referentiel'] ? 'checked' : '' ?>> Ref (E)</label>
+                                <label class="checkbox-row"><input type="checkbox" name="can_view_employees" <?= $grade['can_view_employees'] ? 'checked' : '' ?>> Emp (V)</label>
+                                <label class="checkbox-row"><input type="checkbox" name="can_manage_employees" <?= $grade['can_manage_employees'] ? 'checked' : '' ?>> Emp (M)</label>
+                                <label class="checkbox-row"><input type="checkbox" name="can_manage_grades" <?= $grade['can_manage_grades'] ? 'checked' : '' ?>> Grades</label>
+                                <label class="checkbox-row"><input type="checkbox" name="can_manage_logs" <?= $grade['can_manage_logs'] ? 'checked' : '' ?>> Logs</label>
+                            </div>
                             <button type="submit">Modifier</button>
                         </form>
                         <form method="post" class="danger-form">

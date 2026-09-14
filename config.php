@@ -64,12 +64,21 @@ function ensure_schema(PDO $pdo): void
     ");
 
     ensure_user_permission_columns($pdo);
+    ensure_grade_permission_columns($pdo);
 
     $pdo->exec("
         CREATE TABLE IF NOT EXISTS grades (
             id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
             name VARCHAR(100) NOT NULL UNIQUE,
             pay_percent DECIMAL(5,2) NOT NULL DEFAULT 100,
+            can_view_accounting TINYINT(1) NOT NULL DEFAULT 1,
+            can_edit_accounting TINYINT(1) NOT NULL DEFAULT 1,
+            can_view_referentiel TINYINT(1) NOT NULL DEFAULT 0,
+            can_edit_referentiel TINYINT(1) NOT NULL DEFAULT 0,
+            can_view_employees TINYINT(1) NOT NULL DEFAULT 0,
+            can_manage_employees TINYINT(1) NOT NULL DEFAULT 0,
+            can_manage_grades TINYINT(1) NOT NULL DEFAULT 0,
+            can_manage_logs TINYINT(1) NOT NULL DEFAULT 0,
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     ");
@@ -222,6 +231,14 @@ function ensure_schema_pgsql(PDO $pdo): void
             id SERIAL PRIMARY KEY,
             name VARCHAR(100) NOT NULL UNIQUE,
             pay_percent DECIMAL(5,2) NOT NULL DEFAULT 100,
+            can_view_accounting SMALLINT NOT NULL DEFAULT 1,
+            can_edit_accounting SMALLINT NOT NULL DEFAULT 1,
+            can_view_referentiel SMALLINT NOT NULL DEFAULT 0,
+            can_edit_referentiel SMALLINT NOT NULL DEFAULT 0,
+            can_view_employees SMALLINT NOT NULL DEFAULT 0,
+            can_manage_employees SMALLINT NOT NULL DEFAULT 0,
+            can_manage_grades SMALLINT NOT NULL DEFAULT 0,
+            can_manage_logs SMALLINT NOT NULL DEFAULT 0,
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
     ");
@@ -372,6 +389,36 @@ function ensure_user_permission_columns(PDO $pdo): void
     ");
 }
 
+function ensure_grade_permission_columns(PDO $pdo): void
+{
+    if (DB_DRIVER === 'pgsql') return;
+
+    $columns = [
+        'can_view_accounting' => 'TINYINT(1) NOT NULL DEFAULT 1',
+        'can_edit_accounting' => 'TINYINT(1) NOT NULL DEFAULT 1',
+        'can_view_referentiel' => 'TINYINT(1) NOT NULL DEFAULT 0',
+        'can_edit_referentiel' => 'TINYINT(1) NOT NULL DEFAULT 0',
+        'can_view_employees' => 'TINYINT(1) NOT NULL DEFAULT 0',
+        'can_manage_employees' => 'TINYINT(1) NOT NULL DEFAULT 0',
+        'can_manage_grades' => 'TINYINT(1) NOT NULL DEFAULT 0',
+        'can_manage_logs' => 'TINYINT(1) NOT NULL DEFAULT 0',
+    ];
+
+    $stmt = $pdo->prepare('
+        SELECT COLUMN_NAME
+        FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = ? AND TABLE_NAME = "grades"
+    ');
+    $stmt->execute([DB_NAME]);
+    $existing = array_flip($stmt->fetchAll(PDO::FETCH_COLUMN));
+
+    foreach ($columns as $column => $definition) {
+        if (!isset($existing[$column])) {
+            $pdo->exec("ALTER TABLE grades ADD COLUMN $column $definition");
+        }
+    }
+}
+
 function current_user(): ?array
 {
     $userId = auth_cookie_user_id() ?: ($_SESSION['user_id'] ?? null);
@@ -381,11 +428,31 @@ function current_user(): ?array
     }
 
     try {
-        $stmt = db()->prepare('SELECT * FROM users WHERE id = ? AND active = 1 LIMIT 1');
+        $stmt = db()->prepare('
+            SELECT users.*, 
+                   grades.can_view_accounting, grades.can_edit_accounting,
+                   grades.can_view_referentiel, grades.can_edit_referentiel,
+                   grades.can_view_employees, grades.can_manage_employees,
+                   grades.can_manage_grades, grades.can_manage_logs
+            FROM users 
+            LEFT JOIN grades ON grades.id = users.grade_id
+            WHERE users.id = ? AND users.active = 1 
+            LIMIT 1
+        ');
         $stmt->execute([$userId]);
         $user = $stmt->fetch();
         
         if ($user) {
+            // Si c'est un admin, on force toutes les permissions à 1 même si le grade dit le contraire
+            if ($user['role'] === 'admin') {
+                $perms = [
+                    'can_view_accounting', 'can_edit_accounting', 'can_view_referentiel',
+                    'can_edit_referentiel', 'can_view_employees', 'can_manage_employees',
+                    'can_manage_grades', 'can_manage_logs'
+                ];
+                foreach ($perms as $p) $user[$p] = 1;
+            }
+            
             $_SESSION['user_id'] = (int) $user['id'];
             return $user;
         }

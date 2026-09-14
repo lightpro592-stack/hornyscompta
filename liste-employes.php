@@ -7,10 +7,7 @@ require_permission($user, 'can_view_employees');
 $employees = db()->query("
     SELECT users.id, users.username, users.role, users.display_name, users.active, users.created_at,
            grades.name AS grade_name, grades.pay_percent,
-           COALESCE(employee_income.income_total, 0) AS income_total,
-           can_view_accounting, can_edit_accounting,
-           can_view_referentiel, can_edit_referentiel,
-           can_view_employees, can_manage_employees, can_manage_grades, can_manage_logs
+           COALESCE(employee_income.income_total, 0) AS income_total
     FROM users
     LEFT JOIN grades ON grades.id = users.grade_id
     LEFT JOIN (

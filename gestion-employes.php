@@ -7,16 +7,7 @@ require_permission($user, 'can_manage_employees');
 $pdo = db();
 $message = '';
 $error = '';
-$permissions = [
-    'can_view_accounting' => 'Voir facturation',
-    'can_edit_accounting' => 'Modifier facturation',
-    'can_view_referentiel' => 'Voir referentiel',
-    'can_edit_referentiel' => 'Modifier referentiel',
-    'can_view_employees' => 'Voir liste employes',
-    'can_manage_employees' => 'Gerer employes',
-    'can_manage_grades' => 'Gerer grades',
-    'can_manage_logs' => 'Gerer logs',
-];
+
 $grades = $pdo->query('SELECT id, name, pay_percent FROM grades ORDER BY name')->fetchAll();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -37,33 +28,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new RuntimeException('Le mot de passe employe doit contenir 4 chiffres.');
             }
 
-            $values = [];
-            foreach (array_keys($permissions) as $permission) {
-                $values[$permission] = isset($_POST[$permission]) ? 1 : 0;
-            }
-
             $stmt = $pdo->prepare('
                 INSERT INTO users (
                     username, password_hash, role, display_name, active,
-                    grade_id,
-                    can_view_accounting, can_edit_accounting,
-                    can_view_referentiel, can_edit_referentiel,
-                    can_view_employees, can_manage_employees, can_manage_grades, can_manage_logs
-                ) VALUES (?, ?, "employee", ?, 1, ?, ?, ?, ?, ?, ?, ?, ?)
+                    grade_id
+                ) VALUES (?, ?, "employee", ?, 1, ?)
             ');
             $stmt->execute([
                 $username,
                 password_hash($password, PASSWORD_DEFAULT),
                 $displayName,
                 $gradeId > 0 ? $gradeId : null,
-                $values['can_view_accounting'],
-                $values['can_edit_accounting'],
-                $values['can_view_referentiel'],
-                $values['can_edit_referentiel'],
-                $values['can_view_employees'],
-                $values['can_manage_employees'],
-                $values['can_manage_grades'],
-                $values['can_manage_logs'],
             ]);
             $message = 'Employe cree.';
         }
@@ -88,11 +63,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new RuntimeException('Complete le nom et l identifiant.');
             }
 
-            $values = [];
-            foreach (array_keys($permissions) as $permission) {
-                $values[$permission] = isset($_POST[$permission]) ? 1 : 0;
-            }
-
             if ($password !== '') {
                 if (!preg_match('/^\d{4}$/', $password) && $employeeId !== (int) $user['id']) {
                     throw new RuntimeException('Le mot de passe employe doit contenir 4 chiffres.');
@@ -101,12 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt = $pdo->prepare('
                     UPDATE users
                     SET username = ?, display_name = ?, password_hash = ?, active = ?,
-                        grade_id = ?,
-                        can_view_accounting = ?, can_edit_accounting = ?,
-                        can_view_referentiel = ?, can_edit_referentiel = ?,
-                        can_view_employees = ?, can_manage_employees = ?,
-                        can_manage_grades = ?,
-                        can_manage_logs = ?
+                        grade_id = ?
                     WHERE id = ?
                 ');
                 $stmt->execute([
@@ -115,26 +80,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     password_hash($password, PASSWORD_DEFAULT),
                     $active,
                     $gradeId > 0 ? $gradeId : null,
-                    $values['can_view_accounting'],
-                    $values['can_edit_accounting'],
-                    $values['can_view_referentiel'],
-                    $values['can_edit_referentiel'],
-                    $values['can_view_employees'],
-                    $values['can_manage_employees'],
-                    $values['can_manage_grades'],
-                    $values['can_manage_logs'],
                     $employeeId,
                 ]);
             } else {
                 $stmt = $pdo->prepare('
                     UPDATE users
                     SET username = ?, display_name = ?, active = ?,
-                        grade_id = ?,
-                        can_view_accounting = ?, can_edit_accounting = ?,
-                        can_view_referentiel = ?, can_edit_referentiel = ?,
-                        can_view_employees = ?, can_manage_employees = ?,
-                        can_manage_grades = ?,
-                        can_manage_logs = ?
+                        grade_id = ?
                     WHERE id = ?
                 ');
                 $stmt->execute([
@@ -142,14 +94,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $displayName,
                     $active,
                     $gradeId > 0 ? $gradeId : null,
-                    $values['can_view_accounting'],
-                    $values['can_edit_accounting'],
-                    $values['can_view_referentiel'],
-                    $values['can_edit_referentiel'],
-                    $values['can_view_employees'],
-                    $values['can_manage_employees'],
-                    $values['can_manage_grades'],
-                    $values['can_manage_logs'],
                     $employeeId,
                 ]);
             }
@@ -178,10 +122,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $employees = $pdo->query("
-    SELECT id, username, role, display_name, active, grade_id, created_at,
-           can_view_accounting, can_edit_accounting,
-           can_view_referentiel, can_edit_referentiel,
-           can_view_employees, can_manage_employees, can_manage_grades, can_manage_logs
+    SELECT id, username, role, display_name, active, grade_id, created_at
     FROM users
     ORDER BY CASE WHEN role = 'admin' THEN 0 ELSE 1 END, display_name
 ")->fetchAll();
@@ -251,15 +192,6 @@ $employees = $pdo->query("
                 </label>
             </div>
 
-            <div class="permission-grid">
-                <?php foreach ($permissions as $key => $label): ?>
-                    <label class="checkbox-row">
-                        <input name="<?= e($key) ?>" type="checkbox" <?= in_array($key, ['can_view_accounting', 'can_edit_accounting'], true) ? 'checked' : '' ?>>
-                        <?= e($label) ?>
-                    </label>
-                <?php endforeach; ?>
-            </div>
-
             <button type="submit">Creer le compte</button>
         </form>
 
@@ -298,15 +230,6 @@ $employees = $pdo->query("
                                 <input name="active" type="checkbox" <?= (int) $employee['active'] === 1 ? 'checked' : '' ?>>
                                 Compte actif
                             </label>
-
-                            <div class="permission-grid">
-                                <?php foreach ($permissions as $key => $label): ?>
-                                    <label class="checkbox-row">
-                                        <input name="<?= e($key) ?>" type="checkbox" <?= can($employee, $key) ? 'checked' : '' ?>>
-                                        <?= e($label) ?>
-                                    </label>
-                                <?php endforeach; ?>
-                            </div>
 
                             <button type="submit">Modifier</button>
                         </form>

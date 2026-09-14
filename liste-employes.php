@@ -4,7 +4,7 @@ require_once __DIR__ . '/config.php';
 $user = require_login();
 require_permission($user, 'can_view_employees');
 
-$employees = db()->query('
+$employees = db()->query("
     SELECT users.id, users.username, users.role, users.display_name, users.active, users.created_at,
            grades.name AS grade_name, grades.pay_percent,
            COALESCE(employee_income.income_total, 0) AS income_total,
@@ -16,11 +16,11 @@ $employees = db()->query('
     LEFT JOIN (
         SELECT user_id, SUM(amount) AS income_total
         FROM accounting_entries
-        WHERE type = "income"
+        WHERE type = 'income'
         GROUP BY user_id
     ) employee_income ON employee_income.user_id = users.id
-    ORDER BY users.role = "admin" DESC, users.display_name
-')->fetchAll();
+    ORDER BY CASE WHEN users.role = 'admin' THEN 0 ELSE 1 END, users.display_name
+")->fetchAll();
 ?>
 <!doctype html>
 <html lang="fr">

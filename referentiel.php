@@ -67,25 +67,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new RuntimeException('La quantite doit etre superieure a 0.');
             }
 
-            $stmt = $pdo->prepare('
-                INSERT INTO ingredients (name, unit)
-                VALUES (?, ?)
-                ON DUPLICATE KEY UPDATE unit = VALUES(unit)
-            ');
+            $stmt = $pdo->prepare(DB_DRIVER === 'pgsql'
+                ? 'INSERT INTO ingredients (name, unit) VALUES (?, ?) ON CONFLICT (name) DO UPDATE SET unit = EXCLUDED.unit RETURNING id'
+                : 'INSERT INTO ingredients (name, unit) VALUES (?, ?) ON DUPLICATE KEY UPDATE unit = VALUES(unit)'
+            );
             $stmt->execute([$name, $unit ?: 'piece']);
 
-            $ingredientId = (int) $pdo->lastInsertId();
+            $ingredientId = DB_DRIVER === 'pgsql' ? (int) $stmt->fetchColumn() : (int) $pdo->lastInsertId();
             if ($ingredientId === 0) {
                 $stmt = $pdo->prepare('SELECT id FROM ingredients WHERE name = ? LIMIT 1');
                 $stmt->execute([$name]);
                 $ingredientId = (int) $stmt->fetchColumn();
             }
 
-            $stmt = $pdo->prepare('
-                INSERT INTO product_ingredients (product_id, ingredient_id, quantity)
-                VALUES (?, ?, ?)
-                ON DUPLICATE KEY UPDATE quantity = VALUES(quantity)
-            ');
+            $stmt = $pdo->prepare(DB_DRIVER === 'pgsql'
+                ? 'INSERT INTO product_ingredients (product_id, ingredient_id, quantity) VALUES (?, ?, ?) ON CONFLICT (product_id, ingredient_id) DO UPDATE SET quantity = EXCLUDED.quantity'
+                : 'INSERT INTO product_ingredients (product_id, ingredient_id, quantity) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE quantity = VALUES(quantity)'
+            );
             $stmt->execute([$productId, $ingredientId, $quantity]);
             $message = 'Ingredient ajoute a la recette.';
         }
@@ -103,11 +101,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new RuntimeException('La quantite doit etre superieure a 0.');
             }
 
-            $stmt = $pdo->prepare('
-                INSERT INTO product_ingredients (product_id, ingredient_id, quantity)
-                VALUES (?, ?, ?)
-                ON DUPLICATE KEY UPDATE quantity = VALUES(quantity)
-            ');
+            $stmt = $pdo->prepare(DB_DRIVER === 'pgsql'
+                ? 'INSERT INTO product_ingredients (product_id, ingredient_id, quantity) VALUES (?, ?, ?) ON CONFLICT (product_id, ingredient_id) DO UPDATE SET quantity = EXCLUDED.quantity'
+                : 'INSERT INTO product_ingredients (product_id, ingredient_id, quantity) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE quantity = VALUES(quantity)'
+            );
             $stmt->execute([$productId, $ingredientId, $quantity]);
             $message = 'Recette mise a jour.';
         }

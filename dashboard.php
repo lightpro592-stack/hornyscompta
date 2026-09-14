@@ -60,6 +60,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 INSERT INTO accounting_entries
                     (user_id, entry_date, shift_label, category, type, amount, note)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
+                ' . (DB_DRIVER === 'pgsql' ? 'RETURNING id' : '') . '
             ');
             $stmt->execute([
                 $user['id'],
@@ -70,11 +71,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $total,
                 trim($_POST['note'] ?? 'Facture caisse'),
             ]);
-            $entryId = (int) $pdo->lastInsertId();
+            $entryId = DB_DRIVER === 'pgsql' ? (int) $stmt->fetchColumn() : (int) $pdo->lastInsertId();
 
             $stmt = $pdo->prepare('
                 INSERT INTO invoices (user_id, accounting_entry_id, invoice_date, total, note)
                 VALUES (?, ?, ?, ?, ?)
+                ' . (DB_DRIVER === 'pgsql' ? 'RETURNING id' : '') . '
             ');
             $stmt->execute([
                 $user['id'],
@@ -83,7 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $total,
                 trim($_POST['note'] ?? ''),
             ]);
-            $invoiceId = (int) $pdo->lastInsertId();
+            $invoiceId = DB_DRIVER === 'pgsql' ? (int) $stmt->fetchColumn() : (int) $pdo->lastInsertId();
 
             $stmt = $pdo->prepare('
                 INSERT INTO invoice_items

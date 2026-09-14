@@ -69,13 +69,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $grades = $pdo->query('SELECT id, name, pay_percent, created_at FROM grades ORDER BY pay_percent DESC, name')->fetchAll();
-$employees = $pdo->query('
+$employees = $pdo->query("
     SELECT users.id, users.display_name, users.username, users.role, users.grade_id,
            grades.name AS grade_name, grades.pay_percent
     FROM users
     LEFT JOIN grades ON grades.id = users.grade_id
-    ORDER BY users.role = "admin" DESC, users.display_name
-')->fetchAll();
+    ORDER BY CASE WHEN users.role = 'admin' THEN 0 ELSE 1 END, users.display_name
+")->fetchAll();
 ?>
 <!doctype html>
 <html lang="fr">

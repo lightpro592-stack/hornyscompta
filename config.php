@@ -8,6 +8,8 @@ define('DB_PORT', getenv('DB_PORT') ?: '3306');
 define('DB_NAME', getenv('DB_NAME') ?: 'hornys_compta');
 define('DB_USER', getenv('DB_USER') ?: 'root');
 define('DB_PASS', getenv('DB_PASS') ?: '');
+define('DB_DRIVER', getenv('DB_DRIVER') ?: 'mysql');
+define('DB_SSLMODE', getenv('DB_SSLMODE') ?: 'require');
 
 function db(): PDO
 {
@@ -17,7 +19,11 @@ function db(): PDO
         return $pdo;
     }
 
-    $dsn = 'mysql:host=' . DB_HOST . ';port=' . DB_PORT . ';dbname=' . DB_NAME . ';charset=utf8mb4';
+    if (DB_DRIVER === 'pgsql') {
+        $dsn = 'pgsql:host=' . DB_HOST . ';port=' . DB_PORT . ';dbname=' . DB_NAME . ';sslmode=' . DB_SSLMODE;
+    } else {
+        $dsn = 'mysql:host=' . DB_HOST . ';port=' . DB_PORT . ';dbname=' . DB_NAME . ';charset=utf8mb4';
+    }
     $pdo = new PDO($dsn, DB_USER, DB_PASS, [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
@@ -30,6 +36,11 @@ function db(): PDO
 
 function ensure_schema(PDO $pdo): void
 {
+    if (DB_DRIVER === 'pgsql') {
+        ensure_schema_pgsql($pdo);
+        return;
+    }
+
     $pdo->exec("
         CREATE TABLE IF NOT EXISTS users (
             id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -182,6 +193,142 @@ function ensure_schema(PDO $pdo): void
     }
 }
 
+function ensure_schema_pgsql(PDO $pdo): void
+{
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS users (
+            id SERIAL PRIMARY KEY,
+            username VARCHAR(60) NOT NULL UNIQUE,
+            password_hash VARCHAR(255) NOT NULL,
+            role VARCHAR(20) NOT NULL DEFAULT 'employee',
+            display_name VARCHAR(100) NOT NULL,
+            active SMALLINT NOT NULL DEFAULT 1,
+            can_view_accounting SMALLINT NOT NULL DEFAULT 1,
+            can_edit_accounting SMALLINT NOT NULL DEFAULT 1,
+            can_view_referentiel SMALLINT NOT NULL DEFAULT 0,
+            can_edit_referentiel SMALLINT NOT NULL DEFAULT 0,
+            can_view_employees SMALLINT NOT NULL DEFAULT 0,
+            can_manage_employees SMALLINT NOT NULL DEFAULT 0,
+            can_manage_grades SMALLINT NOT NULL DEFAULT 0,
+            can_manage_logs SMALLINT NOT NULL DEFAULT 0,
+            grade_id INTEGER NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+    ");
+
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS grades (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(100) NOT NULL UNIQUE,
+            pay_percent DECIMAL(5,2) NOT NULL DEFAULT 100,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+    ");
+
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS accounting_entries (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            entry_date DATE NOT NULL,
+            shift_label VARCHAR(80) NOT NULL,
+            category VARCHAR(80) NOT NULL,
+            type VARCHAR(20) NOT NULL,
+            amount DECIMAL(10,2) NOT NULL,
+            note TEXT NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+    ");
+
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS products (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(120) NOT NULL,
+            category VARCHAR(30) NOT NULL DEFAULT 'other',
+            price DECIMAL(10,2) NOT NULL DEFAULT 0,
+            active SMALLINT NOT NULL DEFAULT 1,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+    ");
+
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS invoices (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            accounting_entry_id INTEGER NULL REFERENCES accounting_entries(id) ON DELETE SET NULL,
+            invoice_date DATE NOT NULL,
+            total DECIMAL(10,2) NOT NULL DEFAULT 0,
+            note TEXT NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+    ");
+
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS invoice_items (
+            id SERIAL PRIMARY KEY,
+            invoice_id INTEGER NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,
+            product_id INTEGER NULL REFERENCES products(id) ON DELETE SET NULL,
+            product_name VARCHAR(120) NOT NULL,
+            unit_price DECIMAL(10,2) NOT NULL,
+            quantity INTEGER NOT NULL,
+            line_total DECIMAL(10,2) NOT NULL
+        )
+    ");
+
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS ingredients (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(120) NOT NULL UNIQUE,
+            unit VARCHAR(30) NOT NULL DEFAULT 'piece',
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+    ");
+
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS discord_webhooks (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(120) NOT NULL,
+            webhook_url TEXT NOT NULL,
+            log_invoices SMALLINT NOT NULL DEFAULT 1,
+            log_employees SMALLINT NOT NULL DEFAULT 0,
+            log_referentiel SMALLINT NOT NULL DEFAULT 0,
+            log_grades SMALLINT NOT NULL DEFAULT 0,
+            active SMALLINT NOT NULL DEFAULT 1,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+    ");
+
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS product_ingredients (
+            id SERIAL PRIMARY KEY,
+            product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+            ingredient_id INTEGER NOT NULL REFERENCES ingredients(id) ON DELETE CASCADE,
+            quantity DECIMAL(10,2) NOT NULL DEFAULT 1,
+            CONSTRAINT uniq_product_ingredient UNIQUE (product_id, ingredient_id)
+        )
+    ");
+
+    $stmt = $pdo->prepare('SELECT id FROM users WHERE username = ? LIMIT 1');
+    $stmt->execute(['admin']);
+
+    if (!$stmt->fetch()) {
+        $insert = $pdo->prepare('
+            INSERT INTO users (
+                username, password_hash, role, display_name,
+                can_view_accounting, can_edit_accounting,
+                can_view_referentiel, can_edit_referentiel,
+                can_view_employees, can_manage_employees,
+                can_manage_grades, can_manage_logs
+            ) VALUES (?, ?, ?, ?, 1, 1, 1, 1, 1, 1, 1, 1)
+        ');
+        $insert->execute([
+            'admin',
+            password_hash('hornys2611', PASSWORD_DEFAULT),
+            'admin',
+            'Administration',
+        ]);
+    }
+}
+
 function ensure_user_permission_columns(PDO $pdo): void
 {
     $columns = [
@@ -210,7 +357,7 @@ function ensure_user_permission_columns(PDO $pdo): void
         }
     }
 
-    $pdo->exec('
+    $pdo->exec("
         UPDATE users
         SET can_view_accounting = 1,
             can_edit_accounting = 1,
@@ -220,8 +367,8 @@ function ensure_user_permission_columns(PDO $pdo): void
             can_manage_employees = 1,
             can_manage_grades = 1,
             can_manage_logs = 1
-        WHERE role = "admin"
-    ');
+        WHERE role = 'admin'
+    ");
 }
 
 function current_user(): ?array

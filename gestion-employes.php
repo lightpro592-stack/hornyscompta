@@ -168,7 +168,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new RuntimeException('Tu ne peux pas supprimer ton propre compte.');
             }
 
-            $stmt = $pdo->prepare('DELETE FROM users WHERE id = ? AND role = "employee"');
+            $stmt = $pdo->prepare("DELETE FROM users WHERE id = ? AND role = 'employee'");
             $stmt->execute([$employeeId]);
             $message = 'Employe supprime.';
         }
@@ -177,14 +177,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$employees = $pdo->query('
+$employees = $pdo->query("
     SELECT id, username, role, display_name, active, grade_id, created_at,
            can_view_accounting, can_edit_accounting,
            can_view_referentiel, can_edit_referentiel,
            can_view_employees, can_manage_employees, can_manage_grades, can_manage_logs
     FROM users
-    ORDER BY role = "admin" DESC, display_name
-')->fetchAll();
+    ORDER BY CASE WHEN role = 'admin' THEN 0 ELSE 1 END, display_name
+")->fetchAll();
 ?>
 <!doctype html>
 <html lang="fr">

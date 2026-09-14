@@ -10,6 +10,7 @@ define('DB_USER', getenv('DB_USER') ?: 'root');
 define('DB_PASS', getenv('DB_PASS') ?: '');
 define('DB_DRIVER', getenv('DB_DRIVER') ?: 'mysql');
 define('DB_SSLMODE', getenv('DB_SSLMODE') ?: 'require');
+define('APP_SECRET', getenv('APP_SECRET') ?: hash('sha256', (DB_PASS ?: '') . (DB_NAME ?: '') . 'hornys-default-secret-v1'));
 
 function db(): PDO
 {
@@ -373,14 +374,71 @@ function ensure_user_permission_columns(PDO $pdo): void
 
 function current_user(): ?array
 {
-    if (empty($_SESSION['user_id'])) {
+    $userId = $_SESSION['user_id'] ?? auth_cookie_user_id();
+
+    if (empty($userId)) {
         return null;
     }
 
     $stmt = db()->prepare('SELECT * FROM users WHERE id = ? AND active = 1 LIMIT 1');
-    $stmt->execute([$_SESSION['user_id']]);
+    $stmt->execute([$userId]);
 
     return $stmt->fetch() ?: null;
+}
+
+function auth_cookie_user_id(): ?int
+{
+    if (empty($_COOKIE['hornys_auth'])) {
+        return null;
+    }
+
+    $parts = explode(':', $_COOKIE['hornys_auth'], 2);
+    if (count($parts) !== 2 || !ctype_digit($parts[0])) {
+        return null;
+    }
+
+    [$userId, $signature] = $parts;
+    $expected = hash_hmac('sha256', $userId, APP_SECRET);
+
+    if (!hash_equals($expected, $signature)) {
+        return null;
+    }
+
+    $_SESSION['user_id'] = (int) $userId;
+    return (int) $userId;
+}
+
+function set_auth_user(int $userId): void
+{
+    $_SESSION['user_id'] = $userId;
+    $value = $userId . ':' . hash_hmac('sha256', (string) $userId, APP_SECRET);
+    
+    $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') 
+               || ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https';
+               
+    setcookie('hornys_auth', $value, [
+        'expires' => time() + 60 * 60 * 24 * 30,
+        'path' => '/',
+        'secure' => $isHttps,
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ]);
+}
+
+function clear_auth_user(): void
+{
+    unset($_SESSION['user_id']);
+    
+    $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') 
+               || ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https';
+
+    setcookie('hornys_auth', '', [
+        'expires' => time() - 3600,
+        'path' => '/',
+        'secure' => $isHttps,
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ]);
 }
 
 function require_login(): array

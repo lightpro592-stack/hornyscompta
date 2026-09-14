@@ -607,21 +607,32 @@ function set_auth_user(int $userId): void
 function clear_auth_user(): void
 {
     unset($_SESSION['user_id']);
+    unset($_COOKIE['hornys_auth']);
     
     $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') 
                || ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https';
 
-    setcookie('hornys_auth', '', [
-        'expires' => time() - 3600,
-        'path' => '/',
-        'secure' => $isHttps,
-        'httponly' => true,
-        'samesite' => 'Lax',
-    ]);
+    foreach (array_unique([$isHttps, false, true]) as $secure) {
+        setcookie('hornys_auth', '', [
+            'expires' => time() - 3600,
+            'path' => '/',
+            'secure' => $secure,
+            'httponly' => true,
+            'samesite' => 'Lax',
+        ]);
+    }
+}
+
+function prevent_private_cache(): void
+{
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    header('Pragma: no-cache');
+    header('Expires: 0');
 }
 
 function require_login(): array
 {
+    prevent_private_cache();
     $user = current_user();
 
     if (!$user) {

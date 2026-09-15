@@ -11,9 +11,7 @@ define('DB_PASS', getenv('DB_PASS') ?: '');
 define('DB_DRIVER', getenv('DB_DRIVER') ?: 'mysql');
 define('DB_SSLMODE', getenv('DB_SSLMODE') ?: 'require');
 define('APP_SECRET', getenv('APP_SECRET') ?: 'hornys-stable-secret-prod-v1');
-define('AUTO_MIGRATE', (getenv('AUTO_MIGRATE') !== false)
-    ? getenv('AUTO_MIGRATE') === '1'
-    : getenv('VERCEL') === false);
+define('AUTO_MIGRATE', true); // Toujours verifier le schema pour eviter les bugs de colonnes manquantes
 
 function db(): PDO
 {

@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/../config.php';
 $user = require_login();
 require_permission($user, 'can_manage_stock');
 

@@ -31,8 +31,11 @@ function db(): PDO
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
     ]);
 
-    if (AUTO_MIGRATE) {
+    // On optimise en ne vérifiant le schéma qu'une seule fois par session utilisateur
+    // ou si on demande explicitement via l'URL (?migrate=1)
+    if (AUTO_MIGRATE && (!isset($_SESSION['schema_verified']) || isset($_GET['migrate']))) {
         ensure_schema($pdo);
+        $_SESSION['schema_verified'] = true;
     }
 
     return $pdo;
@@ -330,7 +333,7 @@ function ensure_schema_pgsql(PDO $pdo): void
 
     ensure_user_permission_columns($pdo);
     ensure_grade_permission_columns($pdo);
-    fix_pgsql_sequences($pdo);
+    // fix_pgsql_sequences($pdo); // Retiré du flux normal car trop lourd (9 requêtes lentes)
 
     $stmt = $pdo->prepare('SELECT id FROM users WHERE username = ? LIMIT 1');
     $stmt->execute(['admin']);

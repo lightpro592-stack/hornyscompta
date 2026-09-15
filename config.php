@@ -71,6 +71,7 @@ function ensure_schema(PDO $pdo): void
 
     ensure_user_permission_columns($pdo);
     ensure_grade_permission_columns($pdo);
+    ensure_ingredient_columns($pdo);
 
     $pdo->exec("
         CREATE TABLE IF NOT EXISTS grades (
@@ -337,6 +338,7 @@ function ensure_schema_pgsql(PDO $pdo): void
 
     ensure_user_permission_columns($pdo);
     ensure_grade_permission_columns($pdo);
+    ensure_ingredient_columns($pdo);
     // fix_pgsql_sequences($pdo); // Retiré du flux normal car trop lourd (9 requêtes lentes)
 
     $stmt = $pdo->prepare('SELECT id FROM users WHERE username = ? LIMIT 1');
@@ -507,6 +509,19 @@ function ensure_grade_permission_columns(PDO $pdo): void
             } catch (Throwable $e) {
                 error_log("Failed to add column $column to grades: " . $e->getMessage());
             }
+        }
+    }
+}
+
+function ensure_ingredient_columns(PDO $pdo): void
+{
+    $existing = get_table_columns($pdo, 'ingredients');
+    if (!in_array('stock_quantity', $existing)) {
+        try {
+            $def = (DB_DRIVER === 'pgsql') ? 'DECIMAL(10,2) NOT NULL DEFAULT 0' : 'DECIMAL(10,2) NOT NULL DEFAULT 0 AFTER unit';
+            $pdo->exec("ALTER TABLE ingredients ADD COLUMN stock_quantity $def");
+        } catch (Throwable $e) {
+            error_log("Failed to add column stock_quantity to ingredients: " . $e->getMessage());
         }
     }
 }

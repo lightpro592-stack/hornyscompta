@@ -72,13 +72,13 @@ render_app_shell_start($user, 'Gestion des Stocks', 'stocks');
                         <tr>
                             <td><strong><?= e($ing['name']) ?></strong></td>
                             <td><?= e($ing['unit']) ?></td>
-                            <td><?= (float)$ing['stock_quantity'] ?></td>
+                            <td><?= (float)($ing['stock_quantity'] ?? 0) ?></td>
                             <td colspan="2">
                                 <form method="post" class="inline-form">
                                     <input type="hidden" name="ingredient_id" value="<?= $ing['id'] ?>">
                                     <input type="hidden" name="ingredient_name" value="<?= e($ing['name']) ?>">
-                                    <input type="hidden" name="old_quantity" value="<?= $ing['stock_quantity'] ?>">
-                                    <input type="number" name="quantity" step="0.01" value="<?= (float)$ing['stock_quantity'] ?>" required>
+                                    <input type="hidden" name="old_quantity" value="<?= $ing['stock_quantity'] ?? 0 ?>">
+                                    <input type="number" name="quantity" step="0.01" value="<?= (float)($ing['stock_quantity'] ?? 0) ?>" required>
                                     <button type="submit" name="update_stock" class="btn-small">Sauvegarder</button>
                                 </form>
                             </td>

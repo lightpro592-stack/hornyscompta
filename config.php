@@ -11,7 +11,7 @@ define('DB_PASS', getenv('DB_PASS') ?: '');
 define('DB_DRIVER', getenv('DB_DRIVER') ?: 'mysql');
 define('DB_SSLMODE', getenv('DB_SSLMODE') ?: 'require');
 define('APP_SECRET', getenv('APP_SECRET') ?: 'hornys-stable-secret-prod-v1');
-define('AUTO_MIGRATE', isset($_GET['migrate']) || getenv('FORCE_MIGRATE') === '1'); // Désactivé par défaut pour des performances maximales, activable via ?migrate=1
+define('AUTO_MIGRATE', isset($_GET['migrate']) || getenv('FORCE_MIGRATE') === '1' || strpos($_SERVER['PHP_SELF'], 'index.php') !== false); 
 
 function db(): PDO
 {

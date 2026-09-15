@@ -28,6 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'can_manage_logs' => isset($_POST['can_manage_logs']) ? 1 : 0,
                 'can_view_stats' => isset($_POST['can_view_stats']) ? 1 : 0,
                 'can_edit_stats' => isset($_POST['can_edit_stats']) ? 1 : 0,
+                'can_manage_stock' => isset($_POST['can_manage_stock']) ? 1 : 0,
             ];
 
             if ($name === '') {
@@ -46,7 +47,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         can_view_referentiel = ?, can_edit_referentiel = ?, 
                         can_view_employees = ?, can_manage_employees = ?, 
                         can_manage_grades = ?, can_manage_logs = ?,
-                        can_view_stats = ?, can_edit_stats = ?
+                        can_view_stats = ?, can_edit_stats = ?,
+                        can_manage_stock = ?
                     WHERE id = ?
                 ');
                 $stmt->execute([
@@ -56,6 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $perms['can_view_employees'], $perms['can_manage_employees'],
                     $perms['can_manage_grades'], $perms['can_manage_logs'],
                     $perms['can_view_stats'], $perms['can_edit_stats'],
+                    $perms['can_manage_stock'],
                     $gradeId
                 ]);
                 $message = 'Grade modifié.';
@@ -67,8 +70,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         can_view_referentiel, can_edit_referentiel, 
                         can_view_employees, can_manage_employees, 
                         can_manage_grades, can_manage_logs,
-                        can_view_stats, can_edit_stats
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        can_view_stats, can_edit_stats,
+                        can_manage_stock
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ');
                 $stmt->execute([
                     $name, $payPercent, 
@@ -76,7 +80,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $perms['can_view_referentiel'], $perms['can_edit_referentiel'],
                     $perms['can_view_employees'], $perms['can_manage_employees'],
                     $perms['can_manage_grades'], $perms['can_manage_logs'],
-                    $perms['can_view_stats'], $perms['can_edit_stats']
+                    $perms['can_view_stats'], $perms['can_edit_stats'],
+                    $perms['can_manage_stock']
                 ]);
                 $message = 'Grade créé.';
             }
@@ -160,6 +165,7 @@ $employees = $pdo->query("
                 <label class="checkbox-row"><input type="checkbox" name="can_manage_logs"> Voir les logs</label>
                 <label class="checkbox-row"><input type="checkbox" name="can_view_stats"> Voir les statistiques</label>
                 <label class="checkbox-row"><input type="checkbox" name="can_edit_stats"> Modifier les statistiques</label>
+                <label class="checkbox-row"><input type="checkbox" name="can_manage_stock"> Gérer les stocks</label>
             </div>
             <button type="submit">Créer le grade</button>
         </form>
@@ -188,6 +194,7 @@ $employees = $pdo->query("
                                 <label class="checkbox-row"><input type="checkbox" name="can_manage_logs" <?= $grade['can_manage_logs'] ? 'checked' : '' ?>> Logs</label>
                                 <label class="checkbox-row"><input type="checkbox" name="can_view_stats" <?= $grade['can_view_stats'] ? 'checked' : '' ?>> Stats (V)</label>
                                 <label class="checkbox-row"><input type="checkbox" name="can_edit_stats" <?= $grade['can_edit_stats'] ? 'checked' : '' ?>> Stats (E)</label>
+                                <label class="checkbox-row"><input type="checkbox" name="can_manage_stock" <?= $grade['can_manage_stock'] ? 'checked' : '' ?>> Stocks</label>
                             </div>
                             <button type="submit">Modifier</button>
                         </form>

@@ -158,6 +158,7 @@ function ensure_schema(PDO $pdo): void
             id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
             name VARCHAR(120) NOT NULL UNIQUE,
             unit VARCHAR(30) NOT NULL DEFAULT 'piece',
+            stock_quantity DECIMAL(10,2) NOT NULL DEFAULT 0,
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     ");
@@ -171,6 +172,7 @@ function ensure_schema(PDO $pdo): void
             log_employees TINYINT(1) NOT NULL DEFAULT 0,
             log_referentiel TINYINT(1) NOT NULL DEFAULT 0,
             log_grades TINYINT(1) NOT NULL DEFAULT 0,
+            log_stock TINYINT(1) NOT NULL DEFAULT 0,
             active TINYINT(1) NOT NULL DEFAULT 1,
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
@@ -303,6 +305,7 @@ function ensure_schema_pgsql(PDO $pdo): void
             id SERIAL PRIMARY KEY,
             name VARCHAR(120) NOT NULL UNIQUE,
             unit VARCHAR(30) NOT NULL DEFAULT 'piece',
+            stock_quantity DECIMAL(10,2) NOT NULL DEFAULT 0,
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
     ");
@@ -316,6 +319,7 @@ function ensure_schema_pgsql(PDO $pdo): void
             log_employees SMALLINT NOT NULL DEFAULT 0,
             log_referentiel SMALLINT NOT NULL DEFAULT 0,
             log_grades SMALLINT NOT NULL DEFAULT 0,
+            log_stock SMALLINT NOT NULL DEFAULT 0,
             active SMALLINT NOT NULL DEFAULT 1,
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
@@ -400,6 +404,10 @@ function ensure_user_permission_columns(PDO $pdo): void
             'mysql' => 'TINYINT(1) NOT NULL DEFAULT 0',
             'pgsql' => 'SMALLINT NOT NULL DEFAULT 0'
         ],
+        'can_manage_stock' => [
+            'mysql' => 'TINYINT(1) NOT NULL DEFAULT 0',
+            'pgsql' => 'SMALLINT NOT NULL DEFAULT 0'
+        ],
         'grade_id' => [
             'mysql' => 'INT UNSIGNED NULL',
             'pgsql' => 'INTEGER NULL'
@@ -431,7 +439,8 @@ function ensure_user_permission_columns(PDO $pdo): void
             can_manage_grades = 1,
             can_manage_logs = 1,
             can_view_stats = 1,
-            can_edit_stats = 1
+            can_edit_stats = 1,
+            can_manage_stock = 1
         WHERE role = 'admin'
         ");
     } catch (Throwable $e) {
@@ -479,6 +488,10 @@ function ensure_grade_permission_columns(PDO $pdo): void
             'pgsql' => 'SMALLINT NOT NULL DEFAULT 0'
         ],
         'can_edit_stats' => [
+            'mysql' => 'TINYINT(1) NOT NULL DEFAULT 0',
+            'pgsql' => 'SMALLINT NOT NULL DEFAULT 0'
+        ],
+        'can_manage_stock' => [
             'mysql' => 'TINYINT(1) NOT NULL DEFAULT 0',
             'pgsql' => 'SMALLINT NOT NULL DEFAULT 0'
         ],
@@ -553,7 +566,8 @@ function current_user(): ?array
                    grades.can_view_referentiel, grades.can_edit_referentiel,
                    grades.can_view_employees, grades.can_manage_employees,
                    grades.can_manage_grades, grades.can_manage_logs,
-                   grades.can_view_stats, grades.can_edit_stats
+                   grades.can_view_stats, grades.can_edit_stats,
+                   grades.can_manage_stock
             FROM users 
             LEFT JOIN grades ON grades.id = users.grade_id
             WHERE users.id = ? AND users.active = 1 
@@ -568,7 +582,7 @@ function current_user(): ?array
                 $perms = [
                     'can_view_accounting', 'can_edit_accounting', 'can_view_referentiel',
                     'can_edit_referentiel', 'can_view_employees', 'can_manage_employees',
-                    'can_manage_grades', 'can_manage_logs', 'can_view_stats', 'can_edit_stats'
+                    'can_manage_grades', 'can_manage_logs', 'can_view_stats', 'can_edit_stats', 'can_manage_stock'
                 ];
                 foreach ($perms as $p) $user[$p] = 1;
             }
@@ -721,6 +735,7 @@ function send_discord_log(string $eventType, string $title, string $description,
         'employee' => 'log_employees',
         'referentiel' => 'log_referentiel',
         'grade' => 'log_grades',
+        'stock' => 'log_stock',
     ][$eventType] ?? null;
 
     if (!$eventColumn) {
@@ -815,6 +830,9 @@ function render_app_shell_start(array $user, string $title, string $activePage):
     }
     if (can($user, 'can_view_stats')) {
         $items[] = ['statistique', 'statistique.php', 'Statistiques'];
+    }
+    if (can($user, 'can_manage_stock')) {
+        $items[] = ['stocks', 'gestion-stocks.php', 'Stocks'];
     }
     if (can($user, 'can_manage_logs')) {
         $items[] = ['logs', 'logs.php', 'Logs'];

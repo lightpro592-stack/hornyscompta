@@ -391,6 +391,14 @@ function ensure_user_permission_columns(PDO $pdo): void
             'mysql' => 'TINYINT(1) NOT NULL DEFAULT 0',
             'pgsql' => 'SMALLINT NOT NULL DEFAULT 0'
         ],
+        'can_view_stats' => [
+            'mysql' => 'TINYINT(1) NOT NULL DEFAULT 0',
+            'pgsql' => 'SMALLINT NOT NULL DEFAULT 0'
+        ],
+        'can_edit_stats' => [
+            'mysql' => 'TINYINT(1) NOT NULL DEFAULT 0',
+            'pgsql' => 'SMALLINT NOT NULL DEFAULT 0'
+        ],
         'grade_id' => [
             'mysql' => 'INT UNSIGNED NULL',
             'pgsql' => 'INTEGER NULL'
@@ -419,9 +427,11 @@ function ensure_user_permission_columns(PDO $pdo): void
                 can_edit_referentiel = 1,
                 can_view_employees = 1,
                 can_manage_employees = 1,
-                can_manage_grades = 1,
-                can_manage_logs = 1
-            WHERE role = 'admin'
+            can_manage_grades = 1,
+            can_manage_logs = 1,
+            can_view_stats = 1,
+            can_edit_stats = 1
+        WHERE role = 'admin'
         ");
     } catch (Throwable $e) {
         error_log("Failed to update admin permissions: " . $e->getMessage());
@@ -460,6 +470,14 @@ function ensure_grade_permission_columns(PDO $pdo): void
             'pgsql' => 'SMALLINT NOT NULL DEFAULT 0'
         ],
         'can_manage_logs' => [
+            'mysql' => 'TINYINT(1) NOT NULL DEFAULT 0',
+            'pgsql' => 'SMALLINT NOT NULL DEFAULT 0'
+        ],
+        'can_view_stats' => [
+            'mysql' => 'TINYINT(1) NOT NULL DEFAULT 0',
+            'pgsql' => 'SMALLINT NOT NULL DEFAULT 0'
+        ],
+        'can_edit_stats' => [
             'mysql' => 'TINYINT(1) NOT NULL DEFAULT 0',
             'pgsql' => 'SMALLINT NOT NULL DEFAULT 0'
         ],
@@ -529,10 +547,12 @@ function current_user(): ?array
     try {
         $stmt = db()->prepare('
             SELECT users.*, 
+                   grades.name AS grade_name,
                    grades.can_view_accounting, grades.can_edit_accounting,
                    grades.can_view_referentiel, grades.can_edit_referentiel,
                    grades.can_view_employees, grades.can_manage_employees,
-                   grades.can_manage_grades, grades.can_manage_logs
+                   grades.can_manage_grades, grades.can_manage_logs,
+                   grades.can_view_stats, grades.can_edit_stats
             FROM users 
             LEFT JOIN grades ON grades.id = users.grade_id
             WHERE users.id = ? AND users.active = 1 
@@ -547,7 +567,7 @@ function current_user(): ?array
                 $perms = [
                     'can_view_accounting', 'can_edit_accounting', 'can_view_referentiel',
                     'can_edit_referentiel', 'can_view_employees', 'can_manage_employees',
-                    'can_manage_grades', 'can_manage_logs'
+                    'can_manage_grades', 'can_manage_logs', 'can_view_stats', 'can_edit_stats'
                 ];
                 foreach ($perms as $p) $user[$p] = 1;
             }
@@ -771,4 +791,56 @@ function e(?string $value): string
 function money(float|string $amount): string
 {
     return number_format((float) $amount, 2, ',', ' ') . ' $';
+}
+
+function render_app_shell_start(array $user, string $title, string $activePage): void
+{
+    $items = [];
+
+    if (can($user, 'can_view_accounting')) {
+        $items[] = ['dashboard', 'dashboard.php', 'Facturation'];
+    }
+    if (can($user, 'can_view_referentiel')) {
+        $items[] = ['referentiel', 'referentiel.php', 'Référentiel'];
+    }
+    if (can($user, 'can_view_employees')) {
+        $items[] = ['liste-employes', 'liste-employes.php', 'Liste des employés'];
+    }
+    if (can($user, 'can_manage_employees')) {
+        $items[] = ['gestion-employes', 'gestion-employes.php', 'Gestion employés'];
+    }
+    if (can($user, 'can_manage_grades')) {
+        $items[] = ['gestion-grades', 'gestion-grades.php', 'Gestion grades'];
+    }
+    if (can($user, 'can_view_stats')) {
+        $items[] = ['statistique', 'statistique.php', 'Statistiques'];
+    }
+    if (can($user, 'can_manage_logs')) {
+        $items[] = ['logs', 'logs.php', 'Logs'];
+    }
+    $items[] = ['logout', 'logout.php', 'Déconnexion'];
+    ?>
+    <div class="workspace-shell">
+        <aside class="side-tabs">
+            <div class="side-brand">
+                <p class="eyebrow">Restaurant le Horny's</p>
+                <h1><?= e($title) ?></h1>
+                <span><?= e($user['display_name']) ?> - <?= e($user['role']) ?></span>
+            </div>
+            <nav>
+                <?php foreach ($items as [$key, $href, $label]): ?>
+                    <a href="<?= e($href) ?>" class="<?= $activePage === $key ? 'current' : '' ?>"><?= e($label) ?></a>
+                <?php endforeach; ?>
+            </nav>
+        </aside>
+        <main class="app-layout workspace-main">
+    <?php
+}
+
+function render_app_shell_end(): void
+{
+    ?>
+        </main>
+    </div>
+    <?php
 }

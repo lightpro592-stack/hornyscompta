@@ -26,6 +26,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'can_manage_employees' => isset($_POST['can_manage_employees']) ? 1 : 0,
                 'can_manage_grades' => isset($_POST['can_manage_grades']) ? 1 : 0,
                 'can_manage_logs' => isset($_POST['can_manage_logs']) ? 1 : 0,
+                'can_view_stats' => isset($_POST['can_view_stats']) ? 1 : 0,
+                'can_edit_stats' => isset($_POST['can_edit_stats']) ? 1 : 0,
             ];
 
             if ($name === '') {
@@ -43,7 +45,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         can_view_accounting = ?, can_edit_accounting = ?, 
                         can_view_referentiel = ?, can_edit_referentiel = ?, 
                         can_view_employees = ?, can_manage_employees = ?, 
-                        can_manage_grades = ?, can_manage_logs = ?
+                        can_manage_grades = ?, can_manage_logs = ?,
+                        can_view_stats = ?, can_edit_stats = ?
                     WHERE id = ?
                 ');
                 $stmt->execute([
@@ -52,9 +55,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $perms['can_view_referentiel'], $perms['can_edit_referentiel'],
                     $perms['can_view_employees'], $perms['can_manage_employees'],
                     $perms['can_manage_grades'], $perms['can_manage_logs'],
+                    $perms['can_view_stats'], $perms['can_edit_stats'],
                     $gradeId
                 ]);
-                $message = 'Grade modifie.';
+                $message = 'Grade modifié.';
             } else {
                 $stmt = $pdo->prepare('
                     INSERT INTO grades (
@@ -62,17 +66,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         can_view_accounting, can_edit_accounting, 
                         can_view_referentiel, can_edit_referentiel, 
                         can_view_employees, can_manage_employees, 
-                        can_manage_grades, can_manage_logs
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        can_manage_grades, can_manage_logs,
+                        can_view_stats, can_edit_stats
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ');
                 $stmt->execute([
-                    $name, $payPercent,
+                    $name, $payPercent, 
                     $perms['can_view_accounting'], $perms['can_edit_accounting'],
                     $perms['can_view_referentiel'], $perms['can_edit_referentiel'],
                     $perms['can_view_employees'], $perms['can_manage_employees'],
-                    $perms['can_manage_grades'], $perms['can_manage_logs']
+                    $perms['can_manage_grades'], $perms['can_manage_logs'],
+                    $perms['can_view_stats'], $perms['can_edit_stats']
                 ]);
-                $message = 'Grade cree.';
+                $message = 'Grade créé.';
             }
         }
 
@@ -81,7 +87,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $gradeId = (int) ($_POST['grade_id'] ?? 0);
 
             if ($employeeId <= 0) {
-                throw new RuntimeException('Employe introuvable.');
+                throw new RuntimeException('Employé introuvable.');
             }
 
             $stmt = $pdo->prepare('UPDATE users SET grade_id = ? WHERE id = ?');
@@ -101,7 +107,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $stmt = $pdo->prepare('DELETE FROM grades WHERE id = ?');
             $stmt->execute([$gradeId]);
-            $message = 'Grade supprime.';
+            $message = 'Grade supprimé.';
         }
     } catch (Throwable $exception) {
         $error = $exception->getMessage();
@@ -122,34 +128,17 @@ $employees = $pdo->query("
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Gestion grade - Horny's</title>
+    <title>Gestion grades - Horny's</title>
     <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
-    <header class="topbar">
-        <div>
-            <p class="eyebrow">Restaurant le Horny's</p>
-            <h1>Gestion grade</h1>
-        </div>
-        <nav>
-            <span><?= e($user['display_name']) ?> - <?= e($user['role']) ?></span>
-            <?php if (can($user, 'can_view_accounting')): ?><a href="dashboard.php">Facturation</a><?php endif; ?>
-            <?php if (can($user, 'can_view_referentiel')): ?><a href="referentiel.php">Referentiel</a><?php endif; ?>
-            <?php if (can($user, 'can_view_employees')): ?><a href="liste-employes.php">Liste des employes</a><?php endif; ?>
-            <?php if (can($user, 'can_manage_employees')): ?><a href="gestion-employes.php">Gestion employes</a><?php endif; ?>
-            <?php if (can($user, 'can_view_accounting')): ?><a href="statistique.php">Statistique</a><?php endif; ?>
-            <?php if (can($user, 'can_manage_logs')): ?><a href="logs.php">Logs</a><?php endif; ?>
-            <a href="logout.php">Deconnexion</a>
-        </nav>
-    </header>
-
-    <main class="app-layout">
+    <?php render_app_shell_start($user, 'Gestion grades', 'gestion-grades'); ?>
         <?php if ($message): ?><div class="notice"><?= e($message) ?></div><?php endif; ?>
         <?php if ($error): ?><div class="alert"><?= e($error) ?></div><?php endif; ?>
 
         <form class="panel" method="post">
             <input type="hidden" name="action" value="save_grade">
-            <h2>Creer un grade</h2>
+            <h2>Créer un grade</h2>
             <div class="employee-form-grid">
                 <label>Nom du grade
                     <input name="name" placeholder="Serveur, manager, patron..." required>
@@ -169,8 +158,10 @@ $employees = $pdo->query("
                 <label class="checkbox-row"><input type="checkbox" name="can_manage_employees"> Gérer les employés</label>
                 <label class="checkbox-row"><input type="checkbox" name="can_manage_grades"> Gérer les grades</label>
                 <label class="checkbox-row"><input type="checkbox" name="can_manage_logs"> Voir les logs</label>
+                <label class="checkbox-row"><input type="checkbox" name="can_view_stats"> Voir les statistiques</label>
+                <label class="checkbox-row"><input type="checkbox" name="can_edit_stats"> Modifier les statistiques</label>
             </div>
-            <button type="submit">Creer le grade</button>
+            <button type="submit">Créer le grade</button>
         </form>
 
         <section class="panel table-panel">
@@ -195,6 +186,8 @@ $employees = $pdo->query("
                                 <label class="checkbox-row"><input type="checkbox" name="can_manage_employees" <?= $grade['can_manage_employees'] ? 'checked' : '' ?>> Emp (M)</label>
                                 <label class="checkbox-row"><input type="checkbox" name="can_manage_grades" <?= $grade['can_manage_grades'] ? 'checked' : '' ?>> Grades</label>
                                 <label class="checkbox-row"><input type="checkbox" name="can_manage_logs" <?= $grade['can_manage_logs'] ? 'checked' : '' ?>> Logs</label>
+                                <label class="checkbox-row"><input type="checkbox" name="can_view_stats" <?= $grade['can_view_stats'] ? 'checked' : '' ?>> Stats (V)</label>
+                                <label class="checkbox-row"><input type="checkbox" name="can_edit_stats" <?= $grade['can_edit_stats'] ? 'checked' : '' ?>> Stats (E)</label>
                             </div>
                             <button type="submit">Modifier</button>
                         </form>
@@ -205,7 +198,7 @@ $employees = $pdo->query("
                         </form>
                     </article>
                 <?php endforeach; ?>
-                <?php if (!$grades): ?><p class="empty-state">Aucun grade cree pour le moment.</p><?php endif; ?>
+                <?php if (!$grades): ?><p class="empty-state">Aucun grade créé pour le moment.</p><?php endif; ?>
             </div>
         </section>
 
@@ -233,6 +226,6 @@ $employees = $pdo->query("
                 <?php endforeach; ?>
             </div>
         </section>
-    </main>
+    <?php render_app_shell_end(); ?>
 </body>
 </html>
